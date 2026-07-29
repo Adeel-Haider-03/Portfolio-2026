@@ -1,0 +1,1295 @@
+@import 'tailwindcss';
+
+/* ── Tokens ──────────────────────────────────────────────────────────────
+   Blueprint ink, warm paper, one accent: brass. A status-LED amber, not neon.
+   Contrast against --color-ink: paper 15.4:1, slate 6.4:1, brass 8.9:1.
+   ──────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-ink: #0e1420;
+  --color-ink-raise: #151d2c;
+  --color-ink-deep: #0a0f18;
+  --color-line: #24304a;
+  --color-line-soft: #1a2334;
+  --color-paper: #e8e6e1;
+  --color-slate: #7c8798;
+  --color-slate-dim: #4e5a6d;
+  --color-brass: #e0a458;
+
+  --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line-soft);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    /* No overflow-x:hidden here — it silently makes body a scroll container
+       and breaks position:sticky, which the cylinder depends on. */
+  }
+
+  /* Drawing-sheet grid. 3% opacity — felt, not seen. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(124, 135, 152, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(124, 135, 152, 0.06) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 20%, transparent 80%);
+  }
+
+  ::selection {
+    background: var(--color-brass);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+  }
+}
+
+@layer components {
+  /* ── Layout shell ─────────────────────────────────────────────────── */
+  .shell {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 78rem;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .shell {
+      padding-inline: 4rem;
+    }
+  }
+
+  /* Consecutive bands stack their padding, so the gap between two sections is
+     double this. The hairline carries the separation; the space does not have
+     to do it alone. */
+  .band {
+    padding-block: 4rem;
+    border-top: 1px solid var(--color-line-soft);
+  }
+
+  .band-open {
+    padding-block: 0;
+    border-top: 0;
+  }
+
+  @media (min-width: 1024px) {
+    .band {
+      padding-block: 5.5rem;
+    }
+  }
+
+  /* ── Section label: mono eyebrow with a measurement tick ──────────── */
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-slate);
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 1.75rem;
+    height: 1px;
+    background: var(--color-brass);
+    flex: none;
+  }
+
+  .sect-title {
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    font-variation-settings: 'wdth' 108, 'wght' 800;
+    margin-top: 1.5rem;
+    max-width: 20ch;
+  }
+
+  .lede {
+    color: var(--color-slate);
+    font-size: 1.0625rem;
+    max-width: 60ch;
+    margin-top: 1.25rem;
+  }
+
+  /* ── Ruler rail: fixed measurement device, encodes scroll position ── */
+  .ruler {
+    position: fixed;
+    left: 1.75rem;
+    top: 50%;
+    translate: 0 -50%;
+    z-index: 40;
+    display: none;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Only once the gutter is genuinely wider than the rail plus its longest
+     label — otherwise the active label reaches into the text column. */
+  @media (min-width: 1440px) {
+    .ruler {
+      display: flex;
+    }
+  }
+
+  .ruler-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-block: 0.6rem;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    color: var(--color-slate-dim);
+    transition: color 0.25s ease;
+  }
+
+  .ruler-item:hover {
+    color: var(--color-paper);
+  }
+
+  .ruler-tick {
+    width: 0.875rem;
+    height: 1px;
+    background: currentColor;
+    flex: none;
+    transition:
+      width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 0.25s ease;
+  }
+
+  .ruler-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0;
+    translate: -4px 0;
+    transition:
+      opacity 0.3s ease,
+      translate 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .ruler-item:hover .ruler-label,
+  .ruler-item.is-active .ruler-label {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  .ruler-item.is-active {
+    color: var(--color-brass);
+  }
+
+  .ruler-item.is-active .ruler-tick {
+    width: 2rem;
+  }
+
+  @keyframes readout {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
+  }
+
+  /* ── Project entry (the flat, reduced-motion fallback cards) ──────── */
+  .proj-name {
+    font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+    font-variation-settings: 'wdth' 106, 'wght' 800;
+  }
+
+  .proj-tagline {
+    color: var(--color-slate);
+    margin-top: 0.875rem;
+    font-size: 1rem;
+    max-width: 40ch;
+  }
+
+  .proj-idx {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    color: var(--color-brass);
+  }
+
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--color-slate);
+    border: 1px solid var(--color-line-soft);
+    padding: 0.24rem 0.6rem;
+    white-space: nowrap;
+  }
+
+  /* ── Link with a travelling underline ─────────────────────────────── */
+  .lnk {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--color-paper);
+    text-decoration: none;
+    padding-bottom: 2px;
+  }
+
+  .lnk::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 1px;
+    background: var(--color-brass);
+    scale: 0 1;
+    transform-origin: left;
+    transition: scale 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .lnk:hover::after,
+  .lnk:focus-visible::after {
+    scale: 1 1;
+  }
+
+  .lnk-arrow {
+    color: var(--color-brass);
+    transition: translate 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .lnk:hover .lnk-arrow {
+    translate: 3px 0;
+  }
+
+  /* ── The road ─────────────────────────────────────────────────────────
+     The timeline is a strip of asphalt with a centre line, and the car is
+     driven down it by scroll position (see Experience.jsx). `.road` is left
+     without a z-index on purpose so the car can still stack above the stop
+     markers, which live in a later sibling.
+     ───────────────────────────────────────────────────────────────────── */
+  .road-wrap {
+    --road-w: 46px;
+    --road-gap: 26px;
+    position: relative;
+    padding-left: calc(var(--road-w) + var(--road-gap));
+  }
+
+  @media (max-width: 640px) {
+    .road-wrap {
+      --road-w: 32px;
+      --road-gap: 16px;
+    }
+  }
+
+  .road {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--road-w);
+    border-left: 1px solid var(--color-line);
+    border-right: 1px solid var(--color-line);
+    background: linear-gradient(
+      to right,
+      rgba(10, 15, 24, 0.9),
+      rgba(23, 31, 46, 0.95) 50%,
+      rgba(10, 15, 24, 0.9)
+    );
+  }
+
+  .road-dashes {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    translate: -50% 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(232, 230, 225, 0.32) 0 16px,
+      transparent 16px 34px
+    );
+  }
+
+  /* Headlights throwing forward down the road. */
+  .road-beam {
+    position: absolute;
+    left: 50%;
+    top: var(--car-y, 60px);
+    width: calc(var(--road-w) * 1.6);
+    height: 150px;
+    translate: -50% 0;
+    margin-top: 12px;
+    pointer-events: none;
+    clip-path: polygon(36% 0, 64% 0, 100% 100%, 0 100%);
+    background: linear-gradient(
+      to bottom,
+      rgba(224, 164, 88, 0.18),
+      rgba(224, 164, 88, 0) 80%
+    );
+  }
+
+  .road-car {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    top: var(--car-y, 60px);
+    translate: calc(-50% + var(--car-sway, 0px)) -50%;
+    rotate: var(--car-tilt, 0deg);
+    line-height: 0;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.65));
+    transition: rotate 0.35s ease-out;
+  }
+
+  .road-car svg {
+    width: calc(var(--road-w) * 0.62);
+    height: auto;
+  }
+
+  .car-body {
+    fill: var(--color-brass);
+  }
+
+  .car-glass {
+    fill: var(--color-ink-deep);
+  }
+
+  .car-roof {
+    fill: #b8823f;
+  }
+
+  .car-lamp {
+    fill: #fff3df;
+  }
+
+  .stop {
+    position: relative;
+    padding-bottom: 3.25rem;
+  }
+
+  .stop:last-child {
+    padding-bottom: 0;
+  }
+
+  .stop-marker {
+    position: absolute;
+    z-index: 1;
+    top: 0.6rem;
+    left: calc(-1 * (var(--road-gap) + var(--road-w) / 2));
+    width: 10px;
+    height: 10px;
+    translate: -50% 0;
+    border-radius: 50%;
+    background: var(--color-slate-dim);
+    box-shadow: 0 0 0 3px var(--color-ink-deep);
+  }
+
+  .stop.is-current .stop-marker {
+    background: var(--color-brass);
+    box-shadow:
+      0 0 0 3px var(--color-ink-deep),
+      0 0 14px rgba(224, 164, 88, 0.6);
+  }
+
+  /* ── Grade dial ───────────────────────────────────────────────────────
+     The needle and the arc both rest at their true value by default, and
+     only start from zero once js-motion confirms the reveal is live — so a
+     page without motion still shows the correct reading.
+     ───────────────────────────────────────────────────────────────────── */
+  .gauge-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.5rem 2.25rem;
+    margin-top: 1.75rem;
+  }
+
+  .gauge {
+    width: 190px;
+    flex: none;
+    overflow: visible;
+  }
+
+  .gauge-track {
+    fill: none;
+    stroke: var(--color-line);
+    stroke-width: 6;
+    stroke-linecap: round;
+  }
+
+  .gauge-fill {
+    fill: none;
+    stroke: var(--color-brass);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dashoffset: var(--to);
+  }
+
+  .js-motion .reveal .gauge-fill {
+    stroke-dashoffset: var(--from);
+    transition: stroke-dashoffset 1.6s cubic-bezier(0.2, 0.75, 0.25, 1) 0.15s;
+  }
+
+  .js-motion .reveal.is-in .gauge-fill {
+    stroke-dashoffset: var(--to);
+  }
+
+  .gauge-tick {
+    stroke: var(--color-slate-dim);
+    stroke-width: 1.5;
+  }
+
+  .gauge-tick.is-major {
+    stroke: var(--color-slate);
+    stroke-width: 2;
+  }
+
+  .gauge-num {
+    fill: var(--color-slate-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
+  .gauge-needle {
+    fill: var(--color-paper);
+    transform-box: view-box;
+    transform-origin: 100px 90px;
+    rotate: var(--to);
+  }
+
+  .js-motion .reveal .gauge-needle {
+    rotate: var(--from);
+    transition: rotate 1.6s cubic-bezier(0.2, 0.75, 0.25, 1) 0.15s;
+  }
+
+  .js-motion .reveal.is-in .gauge-needle {
+    rotate: var(--to);
+  }
+
+  .gauge-value {
+    fill: var(--color-paper);
+    font-family: var(--font-display);
+    font-variation-settings: 'wdth' 106, 'wght' 800;
+    font-size: 27px;
+    text-anchor: middle;
+  }
+
+  .gauge-legend {
+    display: grid;
+    gap: 0.7rem 1.25rem;
+    grid-template-columns: auto;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .gauge-legend dt {
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-slate-dim);
+  }
+
+  .gauge-legend dd {
+    color: var(--color-paper);
+    margin-top: 0.2rem;
+  }
+
+  .course-grid {
+    display: grid;
+    gap: 0.55rem 1.5rem;
+    margin-top: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .course-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .course-grid li {
+    display: flex;
+    gap: 0.6rem;
+    align-items: baseline;
+    font-size: 0.9375rem;
+    color: var(--color-slate);
+  }
+
+  .course-grid li::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    flex: none;
+    rotate: 45deg;
+    background: var(--color-brass);
+    opacity: 0.7;
+  }
+
+  /* ── Seals ────────────────────────────────────────────────────────── */
+  .seal-list {
+    margin-top: 2rem;
+    border-top: 1px solid var(--color-line-soft);
+  }
+
+  .seal-row {
+    display: flex;
+    gap: 1.1rem;
+    align-items: flex-start;
+    padding: 1.15rem 0;
+    border-bottom: 1px solid var(--color-line-soft);
+  }
+
+  .seal {
+    flex: none;
+    width: 40px;
+    line-height: 0;
+  }
+
+  .seal-notch {
+    fill: none;
+    stroke: var(--color-brass);
+    stroke-width: 3;
+    opacity: 0.4;
+    stroke-dasharray: 2 4.5;
+  }
+
+  .seal-ring {
+    fill: rgba(224, 164, 88, 0.09);
+    stroke: var(--color-brass);
+    stroke-width: 1;
+    opacity: 0.85;
+  }
+
+  .seal-mark {
+    fill: var(--color-brass);
+    stroke: var(--color-brass);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .seal-kind {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-brass);
+  }
+
+  .seal-title {
+    margin-top: 0.3rem;
+    font-size: 1.0625rem;
+    line-height: 1.3;
+    color: var(--color-paper);
+  }
+
+  .seal-meta {
+    margin-top: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-slate);
+  }
+
+  .seal-meta:empty {
+    display: none;
+  }
+
+  /* ── Nameplate ────────────────────────────────────────────────────── */
+  .plate {
+    position: relative;
+    margin-top: 5rem;
+    padding: 1.75rem 1.5rem;
+    border: 1px solid var(--color-line);
+    background: linear-gradient(
+      160deg,
+      rgba(23, 31, 46, 0.85),
+      rgba(10, 15, 24, 0.6)
+    );
+  }
+
+  .plate-rivet {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--color-slate), var(--color-ink-deep) 70%);
+    box-shadow: 0 0 0 1px rgba(124, 135, 152, 0.28);
+  }
+
+  .plate-rivet:nth-child(1) {
+    top: 10px;
+    left: 10px;
+  }
+  .plate-rivet:nth-child(2) {
+    top: 10px;
+    right: 10px;
+  }
+  .plate-rivet:nth-child(3) {
+    bottom: 10px;
+    left: 10px;
+  }
+  .plate-rivet:nth-child(4) {
+    bottom: 10px;
+    right: 10px;
+  }
+
+  .plate-fields {
+    display: grid;
+    gap: 1.25rem 2rem;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 700px) {
+    .plate-fields {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .plate-fields dt {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-slate-dim);
+  }
+
+  .plate-fields dd {
+    margin-top: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--color-slate);
+    /* engraved: a dark cut with a light edge under it */
+    text-shadow: 0 1px 0 rgba(232, 230, 225, 0.07);
+  }
+
+  /* ── Reveal on scroll ─────────────────────────────────────────────────
+     Everything is visible by default. The hidden starting state only applies
+     once JS has confirmed the observer is live (see useReveal), so the page
+     never depends on JavaScript to be readable.
+     ─────────────────────────────────────────────────────────────────────── */
+  .js-motion .reveal {
+    opacity: 0;
+    translate: 0 18px;
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+      translate 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .js-motion .reveal.is-in {
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  /* ── Hero type ────────────────────────────────────────────────────── */
+  .wordmark {
+    font-family: var(--font-display);
+    font-variation-settings: 'wdth' 112, 'wght' 800;
+    font-size: clamp(2.75rem, 9vw, 6.5rem);
+    line-height: 0.94;
+    letter-spacing: -0.035em;
+    text-transform: uppercase;
+  }
+
+  .hero-line {
+    font-family: var(--font-display);
+    font-variation-settings: 'wdth' 100, 'wght' 500;
+    font-size: clamp(1.5rem, 3.6vw, 2.5rem);
+    line-height: 1.14;
+    letter-spacing: -0.02em;
+    color: var(--color-slate);
+  }
+
+  .hero-line em {
+    font-style: normal;
+    color: var(--color-paper);
+    font-variation-settings: 'wdth' 100, 'wght' 700;
+  }
+
+  /* ── Falling bricks ───────────────────────────────────────────────────
+     Each letter drops from above, lands, squashes against its own baseline
+     and kicks dust out either side. Gated on js-motion like every other
+     entrance, so without it the name is simply there.
+     ───────────────────────────────────────────────────────────────────── */
+  .brickline {
+    /* the dust needs somewhere to sit without nudging the line box */
+    position: relative;
+  }
+
+  .brick {
+    display: inline-block;
+    position: relative;
+    transform-origin: 50% 100%;
+  }
+
+  .brick-gap {
+    display: inline-block;
+    width: 0.28em;
+  }
+
+  .js-motion .brick {
+    animation: brickFall 1.05s var(--d, 0s) both;
+    will-change: transform, opacity;
+  }
+
+  @keyframes brickFall {
+    0% {
+      translate: 0 -165%;
+      rotate: var(--r, -4deg);
+      opacity: 0;
+      /* gravity: slow release, hard acceleration into the ground */
+      animation-timing-function: cubic-bezier(0.45, 0, 1, 0.5);
+    }
+    8% {
+      opacity: 1;
+    }
+    48% {
+      translate: 0 0;
+      rotate: 0deg;
+      scale: 1 1;
+      animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+    }
+    56% {
+      scale: 1.16 0.8;
+    }
+    68% {
+      translate: 0 -16%;
+      scale: 0.94 1.09;
+      animation-timing-function: cubic-bezier(0.45, 0, 1, 0.5);
+    }
+    80% {
+      translate: 0 0;
+      scale: 1.07 0.94;
+    }
+    89% {
+      translate: 0 -5%;
+      scale: 0.98 1.03;
+    }
+    100% {
+      translate: 0 0;
+      rotate: 0deg;
+      scale: 1 1;
+    }
+  }
+
+  /* Two puffs per letter, thrown opposite ways so the kick reads as impact
+     rather than a symmetrical glow. */
+  .js-motion .brick::before,
+  .js-motion .brick::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0.05em;
+    width: 0.85em;
+    height: 0.3em;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      ellipse at 50% 60%,
+      rgba(232, 230, 225, 0.5),
+      rgba(232, 230, 225, 0) 72%
+    );
+    animation-duration: 0.95s;
+    animation-timing-function: cubic-bezier(0.15, 0.6, 0.3, 1);
+    animation-delay: var(--dust, 0.6s);
+    animation-fill-mode: both;
+  }
+
+  .js-motion .brick::before {
+    animation-name: dustLeft;
+  }
+
+  .js-motion .brick::after {
+    animation-name: dustRight;
+    background: radial-gradient(
+      ellipse at 50% 60%,
+      rgba(224, 164, 88, 0.32),
+      rgba(224, 164, 88, 0) 72%
+    );
+  }
+
+  @keyframes dustLeft {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, 0) scale(0.22, 0.4);
+    }
+    14% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-140%, -48%) scale(1.95, 1.05);
+    }
+  }
+
+  @keyframes dustRight {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, 0) scale(0.22, 0.4);
+    }
+    14% {
+      opacity: 0.45;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(38%, -54%) scale(1.85, 1);
+    }
+  }
+
+  /* staged entrance for the hero — same rule: enhancement only */
+  .js-motion .rise {
+    opacity: 0;
+    translate: 0 20px;
+    animation: rise 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  @keyframes rise {
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.06em;
+    padding: 0.72rem 1.15rem;
+    border: 1px solid var(--color-line);
+    color: var(--color-paper);
+    text-decoration: none;
+    background: transparent;
+    transition:
+      border-color 0.3s ease,
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  .btn:hover {
+    border-color: var(--color-brass);
+    background: rgba(224, 164, 88, 0.07);
+  }
+
+  .btn-solid {
+    background: var(--color-brass);
+    border-color: var(--color-brass);
+    color: var(--color-ink);
+    font-weight: 500;
+  }
+
+  .btn-solid:hover {
+    background: #eeb877;
+    border-color: #eeb877;
+    color: var(--color-ink);
+  }
+
+  /* ── The cylinder ─────────────────────────────────────────────────────
+     A tall scroll track with a pinned stage. Scroll drives --rot; each panel
+     sits on the ring at its own angle. Backs are hidden so the far half of
+     the ring disappears and the shape reads as hollow.
+     ───────────────────────────────────────────────────────────────────── */
+  .cyl-scroll {
+    position: relative;
+    border-top: 1px solid var(--color-line-soft);
+  }
+
+  .cyl-stage {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100svh;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    align-content: stretch;
+    overflow: hidden;
+    padding-block: 2rem 1.75rem;
+  }
+
+  .cyl-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .cyl-count {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    color: var(--color-slate-dim);
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .cyl-count-now {
+    color: var(--color-brass);
+  }
+
+  .cyl-viewport {
+    perspective: 1300px;
+    perspective-origin: 50% 46%;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+  }
+
+  .cyl {
+    position: relative;
+    width: var(--panel-w, 500px);
+    transform-style: preserve-3d;
+    transform: translateZ(calc(var(--radius, 500px) * -1)) rotateY(var(--rot, 0deg));
+  }
+
+  .cyl-panel {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: var(--panel-w, 500px);
+    /* 16/9 sits in the middle of the screenshots' own range (1.55–1.99), so
+       the matte around a contained image stays thin either way. */
+    aspect-ratio: 16 / 9;
+    margin-top: calc(var(--panel-w, 500px) * -0.28125);
+    transform: rotateY(calc(var(--i) * var(--theta))) translateZ(var(--radius, 500px));
+    backface-visibility: hidden;
+    background: var(--color-ink-deep);
+    border: 1px solid var(--color-line);
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    opacity: 0.34;
+    filter: saturate(0.45) brightness(0.6);
+    transition:
+      opacity 0.5s ease,
+      filter 0.5s ease,
+      border-color 0.5s ease,
+      box-shadow 0.5s ease;
+  }
+
+  /* contain, not cover: these are interface screenshots, and cropping one is
+     cropping the work. The matte behind them is the frame. */
+  .cyl-panel img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    background: var(--color-ink-deep);
+  }
+
+  .cyl-panel.is-front {
+    opacity: 1;
+    filter: none;
+    border-color: var(--color-brass);
+    box-shadow:
+      0 0 0 1px rgba(224, 164, 88, 0.35),
+      0 26px 70px -20px rgba(0, 0, 0, 0.9);
+  }
+
+  .cyl-panel:focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 4px;
+  }
+
+  .cyl-noshot {
+    display: grid;
+    place-content: center;
+    gap: 0.75rem;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(224, 164, 88, 0.09), transparent 70%),
+      var(--color-ink-raise);
+  }
+
+  .cyl-noshot-name {
+    font-family: var(--font-display);
+    font-variation-settings: 'wdth' 106, 'wght' 800;
+    font-size: clamp(1.4rem, 3.4vw, 2rem);
+    line-height: 1.05;
+    color: var(--color-paper);
+  }
+
+  .cyl-noshot-tag {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-slate);
+  }
+
+  .cyl-plate {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    padding: 0.7rem 0.9rem;
+    background: linear-gradient(to top, rgba(10, 15, 24, 0.94), rgba(10, 15, 24, 0));
+    font-family: var(--font-mono);
+    text-align: left;
+  }
+
+  .cyl-plate-idx {
+    font-size: 0.625rem;
+    letter-spacing: 0.2em;
+    color: var(--color-brass);
+  }
+
+  .cyl-plate-name {
+    font-size: 0.8125rem;
+    color: var(--color-paper);
+  }
+
+  .cyl-readout {
+    display: grid;
+    gap: 1.25rem 3rem;
+    align-items: end;
+    padding-top: 1.5rem;
+    animation: readout 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @media (min-width: 900px) {
+    .cyl-readout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 22rem);
+    }
+  }
+
+  .cyl-name {
+    font-size: clamp(1.75rem, 4.2vw, 3rem);
+    font-variation-settings: 'wdth' 108, 'wght' 800;
+    line-height: 1;
+  }
+
+  .cyl-tagline {
+    color: var(--color-slate);
+    margin-top: 0.7rem;
+    max-width: 46ch;
+    font-size: 1rem;
+  }
+
+  .cyl-rail {
+    display: flex;
+    gap: 0.4rem;
+    padding-top: 1.5rem;
+  }
+
+  .cyl-rail-tick {
+    height: 2px;
+    flex: 1;
+    background: var(--color-line);
+    transition: background-color 0.4s ease;
+  }
+
+  .cyl-rail-tick.is-on {
+    background: var(--color-brass);
+  }
+
+  /* ── Skill bubbles ────────────────────────────────────────────────────
+     Bubble diameter encodes how many skills the group holds, so the field
+     is readable before you click anything.
+     ───────────────────────────────────────────────────────────────────── */
+  .bub-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem 1.35rem;
+    margin-top: 2.5rem;
+  }
+
+  .bub {
+    position: relative;
+    width: var(--size, 140px);
+    height: var(--size, 140px);
+    flex: none;
+    border-radius: 50%;
+    display: grid;
+    place-content: center;
+    gap: 0.35rem;
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    color: var(--color-slate);
+    border: 1px solid var(--color-line);
+    background: radial-gradient(
+      125% 125% at 34% 24%,
+      rgba(124, 135, 152, 0.15),
+      rgba(10, 15, 24, 0.55) 62%
+    );
+    transition:
+      color 0.35s ease,
+      border-color 0.35s ease,
+      background 0.35s ease,
+      scale 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 0.35s ease;
+  }
+
+  /* Drifts only when the motion machinery is confirmed live. */
+  .js-motion .bub {
+    animation: bubFloat var(--dur, 8s) ease-in-out var(--delay, 0s) infinite alternate;
+  }
+
+  @keyframes bubFloat {
+    from {
+      translate: 0 -8px;
+    }
+    to {
+      translate: 0 10px;
+    }
+  }
+
+  .bub:hover {
+    color: var(--color-paper);
+    border-color: var(--color-slate-dim);
+  }
+
+  .bub.is-on {
+    color: var(--color-ink);
+    border-color: var(--color-brass);
+    background: radial-gradient(125% 125% at 34% 24%, #f2c68c, var(--color-brass) 64%);
+    scale: 1.07;
+    box-shadow:
+      0 0 0 1px rgba(224, 164, 88, 0.4),
+      0 20px 55px -16px rgba(224, 164, 88, 0.5);
+  }
+
+  .bub-label {
+    font-family: var(--font-display);
+    font-variation-settings: 'wdth' 104, 'wght' 700;
+    font-size: 0.9375rem;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+
+  /* The pop: a ring shed by the bubble the moment it is chosen. */
+  .bub-ring {
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 1px solid var(--color-brass);
+    pointer-events: none;
+    animation: bubPop 0.72s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  @keyframes bubPop {
+    from {
+      scale: 0.84;
+      opacity: 0.85;
+    }
+    to {
+      scale: 1.55;
+      opacity: 0;
+    }
+  }
+
+  /* Kept close to the bubbles: the answer to a click should not need scrolling. */
+  .bub-panel {
+    margin-top: 1.75rem;
+    border-top: 1px solid var(--color-line-soft);
+    padding-top: 1.5rem;
+    min-height: 6.5rem;
+  }
+
+  .bub-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.7rem;
+  }
+
+  .bub-item {
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    padding: 0.6rem 1.15rem;
+    font-size: 0.9375rem;
+    color: var(--color-paper);
+    background: rgba(21, 29, 44, 0.72);
+  }
+
+  .js-motion .bub-item {
+    animation: bubItem 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.25) backwards;
+    animation-delay: calc(var(--i) * 45ms);
+  }
+
+  @keyframes bubItem {
+    from {
+      opacity: 0;
+      scale: 0.55;
+      translate: 0 12px;
+    }
+  }
+}
+
+/* ── Motion off ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .js-motion .reveal,
+  .js-motion .rise,
+  .js-motion .brick {
+    opacity: 1;
+    translate: 0 0;
+    rotate: none;
+    scale: none;
+    animation: none;
+  }
+
+  /* No impact, no dust. */
+  .js-motion .brick::before,
+  .js-motion .brick::after {
+    display: none;
+  }
+}
